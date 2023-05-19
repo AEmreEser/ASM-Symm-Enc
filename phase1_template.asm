@@ -6,6 +6,8 @@ T3: .space 4
 fin: .asciiz "C:\\Users\\Emre Eser\\Desktop\\cs401_term_project\\tables.dat" # put the fullpath name of the file AES.dat here
 buffer: .space 5000                    # temporary buffer to read from file
 
+stage: .byte 4 # staging area of the lut words
+
 .text
 #open a file for writing
 li   $v0, 13       # system call for open file
@@ -24,20 +26,41 @@ syscall            # read from file
 
 move $s0, $v0	   # the number of characters read from the file
 la   $s1, buffer   # address of buffer that keeps the characters
-
+la $s2, stage
 
 # 1024 LUT values -- each 4 bytes: total 4096 bytes
 # ascii (hex): 2c = ',', 20 = ' ' --> need to filter these values out!!!
 
-lbu $s2, 0($s1)
-lbu $s2, 1($s1) # read next byte
+# S2: ADDRESS @ STAGE
+main:
+addi $s1, $s1, 2 # initial 0x
+lbu $a2, 0($s1)
+li $a1, 87 # so that a corresponds to 10
+bge $a2, $a1, alpha_hex
+li $a1, 48 
+bge $a2, $a1, alpha_hex
+main_p2:
+li $t3, 0
+or $t3, $t3, $v0
+sll $t3, $t3, 4 # one hex digit left shift
+move $a1, $t3
+jal save
 
-# FUNTIONS TO IMPLEMENT
-# read byte
-	# params: address, offset
-# read word
-	# address
-#
+alpha_hex: # argument reg'e cevir
+sub $a2, $a2, $a1
+move $v0, $a2
+j main_p2
+
+save:
+
+jr $ra
+
+
+addi $s1, $s1, 4 # " ,0x"
+
+
+# NOTE: RESET @ EVERY 8 CHARS
+
 
 # NEED TO ELIMINATE SPACES AND COMMAS
 
