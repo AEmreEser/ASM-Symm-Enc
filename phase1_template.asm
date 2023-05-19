@@ -27,43 +27,64 @@ syscall            # read from file
 move $s0, $v0	   # the number of characters read from the file
 la   $s1, buffer   # address of buffer that keeps the characters
 la $s2, stage
+addi $sp, $sp, -16
+sw $s0, 0($sp) # push s regs
+sw $s1, 4($sp)
+sw $s2, 8($sp)
+sw $s3, 12($sp)
+
+jal get_num_val
+
+lw $s0, 0($sp) # restore s regs
+lw $s1, 4($sp)
+lw $s2, 8($sp)
+lw $s3, 12($sp)
+addi $sp, $sp, 16
 
 # 1024 LUT values -- each 4 bytes: total 4096 bytes
 # ascii (hex): 2c = ',', 20 = ' ' --> need to filter these values out!!!
 
-# S2: ADDRESS @ STAGE
+# S2: ADDRESS OF STAGE
+# S1: ADDRESS OF BUFFER
 
+get_num_val:
+addi $sp, $sp, -12 # push t regs
+sw $t0, 0($sp)
+sw $t1, 4($sp)
+sw $t2, 8($sp)
+
+li $t1, 0
 li $s3, 0
 addi $s1, $s1, 2 # initial 0x # every 8 iterations: += 4
-main:
+func_main:
 lbu $a2, 0($s1)
 li $a1, 87 # so that a corresponds to 10
 bge $a2, $a1, alpha_hex
 li $a1, 48 
 bge $a2, $a1, alpha_hex
-main_p2:
-or $s3, $s3, $v0
-sll $s3, $s3, 4 # one hex digit left shift
-move $a1, $s3
-addi $s1, $s1, 1
-j main
 
-alpha_hex: # argument reg'e cevir
+main_p2:
+sll $s3, $s3, 4 # one hex digit left shift
+or $s3, $s3, $v0
+addi $s1, $s1, 1 # buffer address increment
+addi $t1, $t1, 1 # counter increment
+li $t2, 7
+ble $t1, $t2, func_main
+move $v0, $s3 # returns in v0
+
+lw $t0, 0($sp) # restore t regs
+lw $t1, 4($sp)
+lw $t2, 8($sp)
+addi $sp, $sp, 12
+
+jr $ra
+
+alpha_hex: # args in: $a2, $a1, returns in $v0
 sub $a2, $a2, $a1
 move $v0, $a2
 j main_p2
 
-save:
-
-jr $ra
-
-
-addi $s1, $s1, 4 # " ,0x"
-
-
 # NOTE: RESET @ EVERY 8 CHARS
-
-
 # NEED TO ELIMINATE SPACES AND COMMAS
 
 
