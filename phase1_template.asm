@@ -39,7 +39,8 @@ move $t1, $v0 # t1: address of T0 (updated after every iter. of get num val
 li $t0, 256 # t0: number of iterations per LUT
 jal loop
 
-# s1 must be the next lut word to be scanned here
+# s1 (points to the byte address of the next character to be read [inside buffer] ) must be the next lut word to be scanned here
+# NO NEED TO ADD ANYTHING TO S1 AFTER ITERATIONS
 la $a1, T1
 jal table_allocate
 li $t0, 256
@@ -114,7 +115,7 @@ jr $ra
 get_num_val:
 addi $sp, $sp, -8 # push t regs
 # sw $t0, 0($sp)
-sw $t1, 0($sp)
+sw $t1, 0($sp) # push t regs --> DONT PUSH T0, ELSE ERROR!!!!!!!!! , VALUE OF T0 MUST NOT CHANGE!!!
 sw $t2, 4($sp)
 
 li $t1, 0
@@ -133,7 +134,7 @@ sll $s3, $s3, 4 # one hex digit left shift
 or $s3, $s3, $v0
 addi $s1, $s1, 1 # buffer address increment
 addi $t1, $t1, 1 # counter increment
-li $t2, 7
+li $t2, 7 # if equal to 8 --> return to loop: 8 = word length / 4 (num of bits in hex digit)
 ble $t1, $t2, func_main
 move $v0, $s3 # returns in v0
 
@@ -148,9 +149,6 @@ alpha_hex: # args in: $a2, $a1, returns in $v0
 sub $a2, $a2, $a1
 move $v0, $a2
 j main_p2
-
-# NOTE: RESET @ EVERY 8 CHARS
-# NEED TO ELIMINATE SPACES AND COMMAS
 
 #### END OF FUNCTION!!!!
 
