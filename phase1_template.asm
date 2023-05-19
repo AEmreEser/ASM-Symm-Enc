@@ -32,14 +32,40 @@ sw $s1, 4($sp)
 sw $s2, 8($sp)
 sw $s3, 12($sp)
 
+# T0 ITERATION
+la $a1, T0
 jal table_allocate
-
+move $t1, $v0 # t1: address of T0 (updated after every iter. of get num val
 li $t0, 256 # t0: number of iterations per LUT
-la $t1, T0 # t1: address of T0 (updated after every iter. of get num val
+jal loop
+
+# s1 must be the next lut word to be scanned here
+la $a1, T1
+jal table_allocate
+li $t0, 256
+move $t1, $v0 # t1: address of T0 (updated after every iter. of get num val
+# addi $s1, $s1, -4
+jal loop
+
+la $a1, T2
+jal table_allocate
+li $t0, 256
+move $t1, $v0 # t1: address of T0 (updated after every iter. of get num val
+# addi $s1, $s1, -4
+jal loop
+
+la $a1, T3
+jal table_allocate
+li $t0, 256
+move $t1, $v0 # t1: address of T0 (updated after every iter. of get num val
+# addi $s1, $s1, -4
+jal loop
+
+j Exit
 
 loop: #fetch numeric val, save it in a single lut Tn
-jal get_num_val # function call
-
+j get_num_val # function call
+loop_cont:
 # v0 contains word read from lut
 # s1 contains incremented address of the buffer --> points to the end of the LUT word
 
@@ -49,7 +75,7 @@ addi $s1, $s1, 2 # skip ", " between lut vals
 addi $t0, $t0, -1 # decrement
 bnez $t0, loop
 
-# end of loop
+jr $ra # return from loop
 
 lw $s0, 0($sp) # restore s regs
 lw $s1, 4($sp)
@@ -63,13 +89,15 @@ j Exit
 # each LUT will contain 256 entries
 
 #### FUNCTION Allocate Space
+# a1: address of lut pointer
 table_allocate:
 addi $sp, $sp, -4
 sw $t0, 0($sp)
 li $v0, 9 # syscall for dy. mem. alloc
 li $a0, 1024 # 1024 bytes = 256 words
 syscall
-la $t0, T0
+# la $t0, T0
+move $t0, $a1
 sw $v0, 0($t0)
 lw $t0, 0($sp)
 addi $sp, $sp, 4
@@ -84,10 +112,10 @@ jr $ra
 # a1 must point to the 0 character in 0x...
 # increments address of buffer: kept in s1
 get_num_val:
-addi $sp, $sp, -12 # push t regs
-sw $t0, 0($sp)
-sw $t1, 4($sp)
-sw $t2, 8($sp)
+addi $sp, $sp, -8 # push t regs
+# sw $t0, 0($sp)
+sw $t1, 0($sp)
+sw $t2, 4($sp)
 
 li $t1, 0
 li $s3, 0
@@ -109,12 +137,12 @@ li $t2, 7
 ble $t1, $t2, func_main
 move $v0, $s3 # returns in v0
 
-lw $t0, 0($sp) # restore t regs
-lw $t1, 4($sp)
-lw $t2, 8($sp)
-addi $sp, $sp, 12
+# lw $t0, 0($sp) # restore t regs
+lw $t1, 0($sp)
+lw $t2, 4($sp)
+addi $sp, $sp, 8
 
-jr $ra # return here
+j loop_cont # return here
 
 alpha_hex: # args in: $a2, $a1, returns in $v0
 sub $a2, $a2, $a1
