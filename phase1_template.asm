@@ -32,19 +32,21 @@ la $s2, stage
 # ascii (hex): 2c = ',', 20 = ' ' --> need to filter these values out!!!
 
 # S2: ADDRESS @ STAGE
+
+li $s3, 0
+addi $s1, $s1, 2 # initial 0x # every 8 iterations: += 4
 main:
-addi $s1, $s1, 2 # initial 0x
 lbu $a2, 0($s1)
 li $a1, 87 # so that a corresponds to 10
 bge $a2, $a1, alpha_hex
 li $a1, 48 
 bge $a2, $a1, alpha_hex
 main_p2:
-li $t3, 0
-or $t3, $t3, $v0
-sll $t3, $t3, 4 # one hex digit left shift
-move $a1, $t3
-jal save
+or $s3, $s3, $v0
+sll $s3, $s3, 4 # one hex digit left shift
+move $a1, $s3
+addi $s1, $s1, 1
+j main
 
 alpha_hex: # argument reg'e cevir
 sub $a2, $a2, $a1
