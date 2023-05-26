@@ -6,6 +6,11 @@ T3: .space 4
 fin: .asciiz "C:\\Users\\Emre Eser\\Desktop\\cs401_term_project\\tables.dat" # put the fullpath name of the file AES.dat here
 buffer: .space 12400                    # temporary buffer to read from file
 
+s: .word  0xd82c07cd, 0xc2094cbd, 0x6baa9441, 0x42485e3f
+rkey: .word 0x82e2e670, 0x67a9c37d, 0xc8a7063b, 0x4da5e71f
+
+t: .space 16 # 16 bytes = 128 bits = 4 words
+
 .text
 #open a file for writing
 
@@ -62,7 +67,106 @@ move $t1, $v0 # t1: address of T0 (updated after every iter. of get num val
 # addi $s1, $s1, -4
 jal loop
 
-j Exit
+li $a1, 0
+jal round_op
+
+##### JUMPS FOR PHASE 2 IMPLEMENT HERE!!!
+
+j Exit # END OF MAIN
+
+#~~~phase 2~~~#
+
+round_op:
+# args: $a1: t index (0,1,2,3)
+# used regs: 
+#t0 - address of s -> address of the word at t index in s
+	# -> address of T3
+#t1 - t byte offset
+#t2 - word at s[t index]
+#s0 - word at T3[ [s[t - index]>>24]
+
+
+la $t0, s
+andi $a1, $a1, 3 # mask off the bits before last two
+sll $t1, $a1, 2 # t1 is the byte offset
+add $t0, $t0, $t1 # get address of s[t index]
+lw $t2, 0($t0) # t2 contains word at s[t index]
+srl $t2, $t2, 24 # 24 right shift
+andi $t2, $t2, 255 # 0xff
+la $t0, T3 
+lw $t0, 0($t0)
+sll $t2, $t2, 2 # mult by 4 : byte address
+add $t0, $t0, $t2 # offsetted addresss in T3
+lw $v0, 0($t0) # s0 = T3[s[t - index]>>24]
+
+addi $a1, $a1, 1
+andi $a1, $a1, 3 # increment t - index
+
+la $t0, s
+sll $t1, $a1, 2 # t1 = t - index * 4 = byte offset
+add $t0, $t0, $t1 # t0 = address of s + byte offset => t0 = address of s[t - index + 1 % 4]
+lw $t2, 0($t0) # t2 = word at s[t - index + 1 %4]
+srl $t2, $t2, 16 # 16 bit right shift
+andi $t2, $t2, 255 # 0xff
+la $t0, T1
+lw $t0, 0($t0)
+sll $t2, $t2, 2
+add $t0, $t0, $t2 # offset --> T1 --> s[[ t- index + 1 % 4] >> 16]
+lw $s0, 0($t0)
+
+xor $v0, $v0, $s0
+
+addi $a1, $a1, 1
+andi $a1, $a1, 3 # increment t - index
+
+la $t0, s
+sll $t1, $a1, 2 # t1 = t - index * 4 = byte offset
+add $t0, $t0, $t1 # t0 = address of s + byte offset => t0 = address of s[t - index + 1 % 4]
+lw $t2, 0($t0) # t2 = word at s[t - index + 1 %4]
+srl $t2, $t2, 8 # 8 bit right shift
+andi $t2, $t2, 255 # 0xff
+la $t0, T2
+lw $t0, 0($t0)
+sll $t2, $t2, 2
+add $t0, $t0, $t2 # offset --> T2 --> s[[ t- index + 1 % 4] >> 16]
+lw $s0, 0($t0)
+
+xor $v0, $v0, $s0
+
+addi $a1, $a1, 1
+andi $a1, $a1, 3 # increment t - index
+
+la $t0, s
+sll $t1, $a1, 2 # t1 = t - index * 4 = byte offset
+add $t0, $t0, $t1 # t0 = address of s + byte offset => t0 = address of s[t - index + 1 % 4]
+lw $t2, 0($t0) # t2 = word at s[t - index + 1 %4]
+andi $t2, $t2, 255 # 0xff
+la $t0, T0
+lw $t0, 0($t0)
+sll $t2, $t2, 2
+add $t0, $t0, $t2 # offset --> T2 --> s[[ t- index + 1 % 4] >> 16]
+lw $s0, 0($t0)
+
+xor $v0, $v0, $s0
+
+addi $a1, $a1, 1
+andi $a1, $a1, 3 # increment t - index
+
+la $t0, rkey
+sll $t1, $a1, 2
+add $t0, $t0, $t1 # byte indexed r key address
+lw $t2, 0($t0) # t2 = rkey[t - index (--> same as the initially passed value) ] 
+
+xor $v0, $v0, $t2 # make sure to keep passed argument (t - index) constant outside of function
+jr $ra
+# end of round op
+
+#~~~end of phase 2~~~#
+
+
+
+
+#~~~PHASE 1~~~~#
 
 loop: #fetch numeric val, save it in a single lut Tn
 j get_num_val # function call
@@ -104,6 +208,7 @@ lw $t0, 0($sp)
 addi $sp, $sp, 4
 jr $ra
 
+###### END FUNCTION
 
 
 # S1: ADDRESS OF BUFFER (set inside get_num_val, passed to func in a1)
@@ -129,9 +234,9 @@ bge $a2, $a1, alpha_hex
 li $a1, 48 # so that ascii 0 corresponds to numeric 0
 bge $a2, $a1, alpha_hex
 
-main_p2:
+main_p2: # s3 in this part: numeric value of the ascii sequence for the hex number that is being read from the buffer
 sll $s3, $s3, 4 # one hex digit left shift
-or $s3, $s3, $v0
+or $s3, $s3, $v0 # record the numeric value in s3
 addi $s1, $s1, 1 # buffer address increment
 addi $t1, $t1, 1 # counter increment
 li $t2, 7 # if equal to 8 --> return to loop: 8 = word length / 4 (num of bits in hex digit)
