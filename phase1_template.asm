@@ -67,8 +67,33 @@ move $t1, $v0 # t1: address of T0 (updated after every iter. of get num val
 # addi $s1, $s1, -4
 jal loop
 
-li $a1, 0
+# round key loop begin
+
+li $t0, 0 # t0: keeps index of round key loop iteration --> terminate if equal to 4
+
+round_loop:
+move $a1, $t0
+
+# push s regs before procedure call
+addi $sp, $sp, -4
+sw $s0, 0($sp)
+
 jal round_op
+
+la $t2, t
+sll $t1, $t0, 2 # address to save $v0 in rkey array
+add $t2, $t2, $t1
+sw $v0, 0($t2) # save returned value in rkey array
+
+# pop s regs after procedure call
+lw $s0, 0($sp)
+addi $sp, $sp, 4
+
+addi $t0, $t0, 1 # increment loop index
+
+li $t1, 4
+blt $t0, $t1, round_loop # if t0 == 4, terminate loop
+# round key loop end
 
 ##### JUMPS FOR PHASE 2 IMPLEMENT HERE!!!
 
@@ -85,6 +110,12 @@ round_op:
 #t2 - word at s[t index]
 #s0 - word at T3[ [s[t - index]>>24]
 
+# pushing temp regs
+addi $sp, $sp, -12
+sw $t0, 0($sp)
+sw $t1, 4($sp)
+sw $t2, 8($sp)
+# end of pushing temp regs
 
 la $t0, s
 andi $a1, $a1, 3 # mask off the bits before last two
@@ -158,6 +189,14 @@ add $t0, $t0, $t1 # byte indexed r key address
 lw $t2, 0($t0) # t2 = rkey[t - index (--> same as the initially passed value) ] 
 
 xor $v0, $v0, $t2 # make sure to keep passed argument (t - index) constant outside of function
+
+# restoring temp regs
+lw $t0, 0($sp)
+lw $t1, 4($sp)
+lw $t2, 8($sp)
+addi $sp, $sp, 12
+# end of restoring temp regs
+
 jr $ra
 # end of round op
 
