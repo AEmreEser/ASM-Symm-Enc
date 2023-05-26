@@ -119,9 +119,28 @@ jal transfer # transfer t -> s
 # must generate the next rkey and repeat round op. with the new rkey
 
 
-# TEST
-li $a1, 0 # i value for generate_r_key function
+li $t0, 0
+li $t1, 8
+r_key_generation_loop:
+
+move $a1, $t0 # iteration index passed as argument
+
+addi $sp, $sp, -12 # push s regs
+sw $s0, 0($sp)
+sw $s1, 4($sp)
+sw $s2, 8($sp)
+
 jal generate_r_key
+
+addi $sp, $sp, 12 # restore s regs
+lw $s0, 0($sp)
+lw $s1, 4($sp)
+lw $s2, 8($sp)
+
+addi $t0, $t0, 1 # increment iteration index
+
+blt $t0, $t1, r_key_generation_loop # check break condition
+
 
 j Exit
 
@@ -139,6 +158,15 @@ generate_r_key:
 # t3: contains temporary result
 # v0: contains tmp until 
 # s0: a, s1: b, s2: c
+
+addi $sp, $sp, -20 # push t regs
+sw $t0, 0($sp) 
+sw $t1, 4($sp)
+sw $t2, 8($sp)
+sw $t3, 12($sp)
+sw $t4, 16($sp)
+
+
 la $t0, rkey 
 addi $t0, $t0, 8 # rkey[2]
 lw $t1, 0($t0)
@@ -228,6 +256,13 @@ lw $t3, 12($t4) # value at rkey[3] = t3
 xor $v0, $v0, $t3
 sw $v0, 12($t4) # store to rkey[3]
 # end of updating rkey values
+
+lw $t0, 0($sp) # restore t regs
+lw $t1, 4($sp)
+lw $t2, 8($sp)
+lw $t3, 12($sp)
+lw $t4, 16($sp)
+addi $sp, $sp, 20
 
 jr $ra
 # end of rkey generation function
