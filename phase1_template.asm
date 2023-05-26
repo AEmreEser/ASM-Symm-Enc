@@ -7,8 +7,9 @@ fin: .asciiz "C:\\Users\\Emre Eser\\Desktop\\cs401_term_project\\tables.dat" # p
 buffer: .space 12400                    # temporary buffer to read from file
 
 s: .word  0xd82c07cd, 0xc2094cbd, 0x6baa9441, 0x42485e3f
-rkey: .word 0x82e2e670, 0x67a9c37d, 0xc8a7063b, 0x4da5e71f
-
+rcon: .byte 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01
+rkey: .space 128 # check vals: 0x82e2e670, 0x67a9c37d, 0xc8a7063b, 0x4da5e71f
+key: .word 0x6920e299, 0xa5202a6d, 0x656e6368, 0x69746f2a
 t: .space 16 # 16 bytes = 128 bits = 4 words
 
 .text
@@ -67,8 +68,23 @@ move $t1, $v0 # t1: address of T0 (updated after every iter. of get num val
 # addi $s1, $s1, -4
 jal loop
 
+# initialize rkey with key before round loop executions:
+la $a0, key
+la $a1, rkey
+jal transfer # for i = 0,1,2,3 : rkey[i] = key[i] after this line
+# end of rkey initalization
+
+
+main_loop: # here: re-genearate rkey, generate round value, repeat 10 times
+
 # round key loop begin
 
+# RKEY GENERATION PART:
+
+
+
+
+# ROUND VALUE GENERATION PART:
 li $t0, 0 # t0: keeps index of round key loop iteration --> terminate if equal to 4
 
 round_loop:
@@ -95,11 +111,111 @@ li $t1, 4
 blt $t0, $t1, round_loop # if t0 == 4, terminate loop
 # round key loop end
 
-##### JUMPS FOR PHASE 2 IMPLEMENT HERE!!!
+la $a0, t
+la $a1, s
+jal transfer # transfer t -> s
 
-j Exit # END OF MAIN
+# at this stage in the program: t contains the 128 bit next state value
+# must generate the next rkey and repeat round op. with the new rkey
+
+
+
+# round key generation loop end
+
+# j Exit # END OF MAIN
 
 #~~~phase 2~~~#
+
+# TEST
+li $a1, 0
+
+generate_r_key:
+# a0: argument for i --> loop index??
+# t0: address of rkey + 8 = address of rkey[2] --> becomes d
+# t1: contains value of rkey[2]
+# t3: contains temporary result
+# v0: contains tmp until 
+# s0: a, s1: b, s2: c
+la $t0, rkey 
+addi $t0, $t0, 8 # rkey[2]
+lw $t1, 0($t0)
+
+la $t3, T2
+lw $t3, 0($t3) # t3 contains the array address pointed to by value at T2
+
+srl $s1, $t1, 16 # b
+andi $s1, $s1, 255
+
+# calculation of e
+sll $s1, $s1, 2 # byte offset
+add $t3, $t3, $s1 # address of T2[b]
+lw $t3, 0($t3) # t3 = value at T2[b]
+andi $t3, $t3, 255
+
+# sll $a1, $a1, 2 # a1 * 4 = byte offset to rcon
+la $t4, rcon
+add $t4, $t4, $a1 # t4 = address of rcon[i]
+lb $t4, 0($t4) # t4 = value at rcon[i]
+andi $t4, $t4, 255 
+xor $t4, $t4, $t3 # t4 = e
+sll $v0, $t4, 24 # v0 contains e: after this v0 will be temp
+# v0: e << 24
+
+# getting c
+srl $s1, $t1, 8 # c = s1
+andi $s1, $s1, 255
+
+# calculation of f
+la $t3, T2 # t3 = address of word containing 
+lw $t3, 0($t3)
+sll $s1, $s1, 2 # byte offset from word offset
+add $t3, $t3, $s1 # t3: address of T2[c]
+lw $t3, 0($t3) # t3: value at T2[c]
+andi $t3, $t3, 255 # t3 = f
+sll $t3, $t3, 16
+xor $v0, $v0, $t3 # v0 = (e << 24) ^ (f << 16) 
+
+# getting d
+andi $t1, $t1, 255 # t1 = d
+move $s1, $t1 # s1 = d
+
+# calculation of g
+la $t3, T2 # t3 = address of byte containing address of T2
+lw $t3, 0($t3) # t3 = address of T2
+sll $s1, $s1, 2 # byte offset from word offset d
+add $t3, $t3, $s1 # t3 = address of T2[c]
+lw $t3, 0($t3)  # t3 = value at T2[c]
+andi $t3, $t3, 255 # t3 = g
+sll $t3, $t3, 8
+xor $v0, $v0, $t3 # v0 = (e << 24) ^ (f << 16) ^ (g << 8)
+
+# getting a
+la $t0, rkey 
+addi $t0, $t0, 8 # rkey[2]
+lw $t1, 0($t0)
+srl $s1, $t1, 24 # a
+andi $s1, $s1, 255 # 0xff
+
+# calculation of h
+la $t3, T2# t3 address of byte containing address of first word of T2
+lw $t3, 0($t3) # t3: address of first word of T2
+sll $s1, $s1, 2 # byte offset from word offset a
+add $t3, $t3, $s1 #t3 contains address of T2[a]
+lw $t3, 0($t3) # t3 contains value @ T2[a]
+andi $t3, $t3, 255 # t3 = h
+
+xor $v0, $v0, $t3 # # v0 = (e << 24) ^ (f << 16) ^ (g << 8) ^ h = tmp
+
+# TESTING SEQUENCE
+
+la $t3, rkey
+lw $t3, 0($t3) # value at rkey[0] = t3
+
+xor $v0, $v0, $t3
+
+# END OF TEST
+
+jr $ra
 
 round_op:
 # args: $a1: t index (0,1,2,3)
@@ -199,6 +315,54 @@ addi $sp, $sp, 12
 
 jr $ra
 # end of round op
+
+
+# function transfer from t to s: state transfer
+
+transfer:
+# a0: from - t
+# a1: to - s --> addresses of arrays
+
+addi $sp, $sp, -12 # pushing t regs
+sw $t0, 0($sp)
+sw $t1, 4($sp)
+sw $t2, 8($sp)
+
+move $t2, $a0
+move $t0, $a1
+
+lw $t1, 0($t2)
+sw $t1, 0($t0) # transferred item 0
+addi $t2, $t2, 4
+addi $t0, $t0, 4 # point at item 1
+
+lw $t1, 0($t2)
+sw $t1, 0($t0) # transferred item 1
+addi $t2, $t2, 4
+addi $t0, $t0, 4 # point at item 2
+
+lw $t1, 0($t2)
+sw $t1, 0($t0) # transferred item 2
+addi $t2, $t2, 4
+addi $t0, $t0, 4 # point at item 3
+
+lw $t1, 0($t2)
+sw $t1, 0($t0) # transferred item 3
+
+lw $t0, 0($sp) # restoring t regs
+lw $t1, 4($sp)
+lw $t2, 8($sp)
+addi $sp, $sp, 12
+
+jr $ra 
+
+# end of function
+
+
+generate_rkey:
+
+
+
 
 #~~~end of phase 2~~~#
 
