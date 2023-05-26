@@ -119,6 +119,11 @@ jal transfer # transfer t -> s
 # must generate the next rkey and repeat round op. with the new rkey
 
 
+# TEST
+li $a1, 0 # i value for generate_r_key function
+jal generate_r_key
+
+j Exit
 
 # round key generation loop end
 
@@ -126,8 +131,6 @@ jal transfer # transfer t -> s
 
 #~~~phase 2~~~#
 
-# TEST
-li $a1, 0
 
 generate_r_key:
 # a0: argument for i --> loop index??
@@ -206,16 +209,30 @@ andi $t3, $t3, 255 # t3 = h
 
 xor $v0, $v0, $t3 # # v0 = (e << 24) ^ (f << 16) ^ (g << 8) ^ h = tmp
 
-# TESTING SEQUENCE
+# update rkey values
+la $t4, rkey
+lw $t3, 0($t4) # value at rkey[0] = t3
 
-la $t3, rkey
-lw $t3, 0($t3) # value at rkey[0] = t3
+xor $v0, $v0, $t3 # $v0 = new val of rkey[0]
+sw $v0, 0($t4) # value in $v0 -> rkey[0]
 
+lw $t3, 4($t4) # value at rkey[1] = t3
 xor $v0, $v0, $t3
+sw $v0, 4($t4) # store to rkey[1]
 
-# END OF TEST
+lw $t3, 8($t4) # value at rkey[2] = t3
+xor $v0, $v0, $t3
+sw $v0, 8($t4) # store to rkey[2]
+
+lw $t3, 12($t4) # value at rkey[3] = t3
+xor $v0, $v0, $t3
+sw $v0, 12($t4) # store to rkey[3]
+# end of updating rkey values
 
 jr $ra
+# end of rkey generation function
+
+
 
 round_op:
 # args: $a1: t index (0,1,2,3)
