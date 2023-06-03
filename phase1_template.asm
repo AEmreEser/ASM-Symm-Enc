@@ -9,8 +9,10 @@ buffer: .space 12400                    # temporary buffer to read from file
 s: .word  0xd82c07cd, 0xc2094cbd, 0x6baa9441, 0x42485e3f
 rcon: .byte 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01
 rkey: .space 128 # check vals: 0x82e2e670, 0x67a9c37d, 0xc8a7063b, 0x4da5e71f
-key: .word 0x6920e299, 0xa5202a6d, 0x656e6368, 0x69746f2a
+key: .word 0x2b7e1516, 0x28aed2a6, 0xabf71588, 0x09cf4f3c
 t: .space 16 # 16 bytes = 128 bits = 4 words
+message: .space 64 # 8 word space
+
 
 .text
 #open a file for writing
@@ -75,52 +77,23 @@ jal transfer # for i = 0,1,2,3 : rkey[i] = key[i] after this line
 # end of rkey initalization
 
 
-main_loop: # here: re-genearate rkey, generate round value, repeat 10 times
+main_loop: # here: re-genearate rkey, generate round value, repeat 8 times
 
-# round key loop begin
+
+
+la $a0, message
+li $a1, 32 # 32 chars read
+li $v0, 8 # read string syscall
+syscall
+
+
+
+
+jal whiten
 
 # RKEY GENERATION PART:
 
-
-
-
-# ROUND VALUE GENERATION PART:
-li $t0, 0 # t0: keeps index of round key loop iteration --> terminate if equal to 4
-
-round_loop:
-move $a1, $t0
-
-# push s regs before procedure call
-addi $sp, $sp, -4
-sw $s0, 0($sp)
-
-jal round_op
-
-la $t2, t
-sll $t1, $t0, 2 # address to save $v0 in rkey array
-add $t2, $t2, $t1
-sw $v0, 0($t2) # save returned value in rkey array
-
-# pop s regs after procedure call
-lw $s0, 0($sp)
-addi $sp, $sp, 4
-
-addi $t0, $t0, 1 # increment loop index
-
-li $t1, 4
-blt $t0, $t1, round_loop # if t0 == 4, terminate loop
-# round key loop end
-
-la $a0, t
-la $a1, s
-jal transfer # transfer t -> s
-
-# at this stage in the program: t contains the 128 bit next state value
-# must generate the next rkey and repeat round op. with the new rkey
-
-
-li $t0, 0
-li $t1, 8
+li $t0, 0 #to: r_key_loop index 0 to 7
 r_key_generation_loop:
 
 move $a1, $t0 # iteration index passed as argument
@@ -137,10 +110,40 @@ lw $s0, 0($sp)
 lw $s1, 4($sp)
 lw $s2, 8($sp)
 
-addi $t0, $t0, 1 # increment iteration index
+# ROUND VALUE GENERATION PART:
 
-blt $t0, $t1, r_key_generation_loop # check break condition
+li $t3,0 # t3: round loop index: 0 to 3
+round_loop:
+move $a1, $t3
 
+# push s regs before procedure call
+addi $sp, $sp, -4
+sw $s0, 0($sp)
+
+jal round_op
+
+la $t2, t
+sll $t1, $t3, 2 # address to save $v0 in rkey array
+add $t2, $t2, $t1
+sw $v0, 0($t2) # save returned value in rkey array
+
+# pop s regs after procedure call
+lw $s0, 0($sp)
+addi $sp, $sp, 4
+
+addi $t3, $t3, 1 # increment loop index
+
+li $t1, 4
+blt $t3, $t1, round_loop # if t0 == 4, terminate loop
+# round key loop end
+
+la $a0, t
+la $a1, s
+jal transfer # transfer t -> s
+# end of round value part
+
+li $t1, 8
+blt $t0, $t1, r_key_generation_loop
 
 j Exit
 
@@ -148,7 +151,66 @@ j Exit
 
 # j Exit # END OF MAIN
 
+
+
+
+# PHASE 3:
+
+# WHITEN FUNCTION
+whiten:
+
+addi $sp, $sp, -20
+
+sw $s0, 0($sp)
+sw $s1, 4($sp)
+sw $s2, 8($sp)
+sw $t0, 12($sp)
+sw $t1, 16($sp)
+sw $t2, 20($sp)
+
+la $s0, key
+la $s1, message
+la $s2, s
+li $t0, 0 # index i
+
+
+whiten_loop:
+
+lw $t1, 0($s0) # t1: key[i]
+lw $t2, 0($s1) # t2: message[i]
+xor $t2, $t2, $t1
+sw $t2, 0($s2) # s[i] = result
+
+addi $s0, $s0, 4
+addi $s1, $s1, 4
+addi $s2, $s2, 4
+
+addi $t0, $t0, 1
+li $t1, 4
+blt $t0, $t1, whiten_loop
+
+lw $s0, 0($sp)
+lw $s1, 4($sp)
+lw $s2, 8($sp)
+lw $t0, 12($sp)
+lw $t1, 16($sp)
+lw $t2, 20($sp)
+
+addi $sp, $sp, 20
+
+
+jr $ra
+
+
+
+
+
+
+
 #~~~phase 2~~~#
+
+
+
 
 
 generate_r_key:
@@ -369,6 +431,10 @@ jr $ra
 # end of round op
 
 
+
+
+
+
 # function transfer from t to s: state transfer
 
 transfer:
@@ -417,7 +483,6 @@ generate_rkey:
 
 
 #~~~end of phase 2~~~#
-
 
 
 
@@ -515,4 +580,3 @@ j main_p2
 Exit:
 li $v0,10
 syscall             #exits the program
-
