@@ -11,7 +11,7 @@ rcon: .byte 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01
 rkey: .space 128 # check vals: 0x82e2e670, 0x67a9c37d, 0xc8a7063b, 0x4da5e71f
 key: .word 0x2b7e1516, 0x28aed2a6, 0xabf71588, 0x09cf4f3c
 t: .space 16 # 16 bytes = 128 bits = 4 words
-message: .space 64 # 8 word space
+message: .word 0x6bc1bee2, 0x2e409f96, 0xe93d7e11, 0x7393172a #.space 64 # 8 word space
 
 
 .text
@@ -80,11 +80,11 @@ jal transfer # for i = 0,1,2,3 : rkey[i] = key[i] after this line
 main_loop: # here: re-genearate rkey, generate round value, repeat 8 times
 
 
-
-la $a0, message
-li $a1, 32 # 32 chars read
-li $v0, 8 # read string syscall
-syscall
+# READ INPUT PART
+#la $a0, message
+#li $a1, 32 # 32 chars read
+#li $v0, 8 # read string syscall
+#syscall
 
 
 
@@ -143,6 +143,7 @@ jal transfer # transfer t -> s
 # end of round value part
 
 li $t1, 8
+addi $t0, $t0, 1
 blt $t0, $t1, r_key_generation_loop
 
 j Exit
