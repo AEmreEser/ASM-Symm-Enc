@@ -10,9 +10,10 @@ s: .word  0xd82c07cd, 0xc2094cbd, 0x6baa9441, 0x42485e3f
 rcon: .byte 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01
 rkey: .space 128 # check vals: 0x82e2e670, 0x67a9c37d, 0xc8a7063b, 0x4da5e71f
 key: .word 0x2b7e1516, 0x28aed2a6, 0xabf71588, 0x09cf4f3c
-t: .space 16 # 16 bytes = 128 bits = 4 words
-message: .word 0x6bc1bee2, 0x2e409f96, 0xe93d7e11, 0x7393172a #.space 64 # 8 word space
-
+t: .space 64
+message: .space 64 # .word 0x6bc1bee2, 0x2e409f96, 0xe93d7e11, 0x7393172a, 0x00000000, 0x00000000, 0x00000000, 0x00000000 # .space 64 # 8 word space
+ciphertext: .space 64
+newline: .asciiz "\n"
 
 .text
 #open a file for writing
@@ -81,10 +82,10 @@ main_loop: # here: re-genearate rkey, generate round value, repeat 8 times
 
 
 # READ INPUT PART
-#la $a0, message
-#li $a1, 32 # 32 chars read
-#li $v0, 8 # read string syscall
-#syscall
+la $a0, message
+li $a1, 32 # 32 chars read
+li $v0, 8 # read string syscall
+syscall
 
 
 
@@ -146,11 +147,103 @@ li $t1, 8
 addi $t0, $t0, 1
 blt $t0, $t1, r_key_generation_loop
 
+# message label is where the program stores the intermediary strings until completion:
+# need to transfer it back to the ciphertext label
+# and print it
+
+la $t0, ciphertext
+la $t1, t
+lw $t3, 0($t1)
+sw $t3, 0($t0)
+
+lw $t3, 4($t1)
+sw $t3, 4($t0)
+
+lw $t3, 8($t1)
+sw $t3, 8($t0)
+
+lw $t3, 12($t1)
+sw $t3, 12($t0)
+
+
+# PRINTING: 
+# first prints the ciphertext in ascii, then prints the words in hex
+# important: the words of the ciphertext array are printed with a new line in between for ease of reading
+li $v0, 4
+la $a0, ciphertext
+syscall
+
+li $v0, 4
+la $a0, newline
+syscall
+
+li $v0, 34
+la $t0, ciphertext
+lw $a0, 0($t0)
+syscall
+
+li $v0, 4
+la $a0, newline
+syscall
+
+li $v0, 34
+lw $a0, 4($t0)
+syscall
+
+li $v0, 4
+la $a0, newline
+syscall
+
+li $v0, 34
+lw $a0, 8($t0)
+syscall
+
+li $v0, 4
+la $a0, newline
+syscall
+
+li $v0, 34
+lw $a0, 12($t0)
+syscall
+
+li $v0, 4
+la $a0, newline
+syscall
+
+li $v0, 34
+lw $a0, 16($t0)
+syscall
+
+
+li $v0, 4
+la $a0, newline
+syscall
+
+li $v0, 34
+lw $a0, 20($t0)
+syscall
+
+li $v0, 4
+la $a0, newline
+syscall
+
+li $v0, 34
+lw $a0, 24($t0)
+syscall
+
+li $v0, 4
+la $a0, newline
+syscall
+
+li $v0, 34
+lw $a0, 28($t0)
+syscall
+
 j Exit
 
 # round key generation loop end
 
-# j Exit # END OF MAIN
+# END OF MAIN
 
 
 
